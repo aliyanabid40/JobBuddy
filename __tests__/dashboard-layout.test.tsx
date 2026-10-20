@@ -181,7 +181,7 @@ describe("Phase 3 — Dashboard Layout Components", () => {
       ).toHaveAttribute("href", "/dashboard/settings");
     });
 
-    it("renders navigation label section", () => {
+    it("renders navigation items container", () => {
       const mockUser = {
         email: "test@example.com",
         user_metadata: { full_name: "Test" },
@@ -193,7 +193,8 @@ describe("Phase 3 — Dashboard Layout Components", () => {
         </SidebarProvider>
       );
 
-      expect(screen.getByText("Navigation")).toBeInTheDocument();
+      expect(screen.getByText("Jobs")).toBeInTheDocument();
+      expect(screen.getByText("Resume")).toBeInTheDocument();
     });
   });
 });
