@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardThemeProvider } from "@/components/dashboard/dashboard-theme-provider";
+import { OnboardingDialog } from "@/components/dashboard/onboarding-dialog";
 
 export const instant = false;
 
@@ -24,6 +25,15 @@ export default async function DashboardLayout({
     redirect("/sign-in");
   }
 
+  // Check onboarding status
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("onboarding_done")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const isOnboarded = Boolean(profile?.onboarding_done);
+
   return (
     <DashboardThemeProvider>
       <SidebarProvider defaultOpen={true}>
@@ -34,6 +44,7 @@ export default async function DashboardLayout({
             {children}
           </main>
         </SidebarInset>
+        <OnboardingDialog initialOnboardingDone={isOnboarded} />
       </SidebarProvider>
     </DashboardThemeProvider>
   );

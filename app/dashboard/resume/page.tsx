@@ -1,11 +1,13 @@
-import { File01Icon } from "@hugeicons/core-free-icons";
-import { DashboardPlaceholder } from "@/components/dashboard/dashboard-placeholder";
+import { connection } from "next/server";
+import { getResumesList } from "@/features/resume/actions";
+import { ResumeList } from "@/components/resume/resume-list";
 
-export default function ResumePage() {
-  return (
-    <DashboardPlaceholder
-      title="Resume"
-      icon={File01Icon}
-    />
-  );
+export const instant = false;
+
+export default async function ResumePage() {
+  await connection();
+  const res = await getResumesList();
+  const resumes = res.ok ? res.data : [];
+
+  return <ResumeList initialResumes={resumes} />;
 }
