@@ -32,20 +32,23 @@ export function createGeminiClient(apiKey: string): GoogleGenAI {
 }
 
 export function getGeminiModelName(): string {
-  return process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+  return process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 }
 
 /**
- * Returns prioritized list of Gemini model candidates for automatic failover
+ * Returns prioritized list of Gemini model candidates for automatic failover.
+ * Prioritizes high-speed, active models (gemini-3.5-flash-lite, gemini-3.5-flash, gemini-3.8-flash)
+ * and excludes deprecated models like 2.5-flash which fail with 404.
  */
 export function getGeminiCandidateModels(): string[] {
   const configured = getGeminiModelName();
   const list = [
     configured,
-    "gemini-flash-lite-latest",
+    "gemini-3.5-flash-lite",
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
     "gemini-3.1-flash-lite",
-    "gemini-3.1-flash-lite-preview",
-    "gemini-2.5-flash",
+    "gemini-flash-lite-latest",
   ];
   return Array.from(new Set(list));
 }

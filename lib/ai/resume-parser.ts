@@ -134,68 +134,41 @@ export async function parseResumeWithGemini(resumeText: string): Promise<ParsedR
     for (let modelIdx = 0; modelIdx < models.length; modelIdx++) {
       const model = models[modelIdx];
 
-      // Retry up to 2 attempts on transient 503 / 429
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const response = await client.models.generateContent({
-            model: model,
-            contents: [
-              {
-                role: "user",
-                parts: [
-                  {
-                    text: `${SYSTEM_PROMPT}\n\nRESUME TEXT CONTENT:\n\"\"\"\n${resumeText}\n\"\"\"`,
-                  },
-                ],
-              },
-            ],
-            config: {
-              responseMimeType: "application/json",
-              temperature: 0.1,
-            },
-          });
+      try {
+        const response = await client.models.generateContent({
+          model: model,
+          contents: `RESUME TEXT CONTENT:\n"""\n${resumeText}\n"""`,
+          config: {
+            systemInstruction: SYSTEM_PROMPT,
+            responseMimeType: "application/json",
+            temperature: 0.1,
+          },
+        });
 
-          const rawOutput = response.text || "";
-          if (!rawOutput) {
-            throw new Error("Gemini AI returned an empty response during resume parsing.");
-          }
-
-          // Sanitize potential markdown block wrapping
-          const cleaned = rawOutput
-            .replace(/^```json\s*/i, "")
-            .replace(/^```\s*/i, "")
-            .replace(/\s*```$/i, "")
-            .trim();
-
-          const jsonResult = JSON.parse(cleaned);
-          const parsed = ParsedResumeSchema.safeParse(jsonResult);
-          if (!parsed.success) {
-            throw new Error(`Resume schema validation failed: ${parsed.error.message}`);
-          }
-
-          return parsed.data;
-        } catch (err: unknown) {
-          const rawMsg = err instanceof Error ? err.message : String(err);
-          const isDemandSpike = rawMsg.includes("503") || rawMsg.includes("high demand") || rawMsg.includes("UNAVAILABLE");
-          const isRateLimit = rawMsg.includes("429") || rawMsg.includes("RESOURCE_EXHAUSTED") || rawMsg.includes("quota");
-          const isNotFound = rawMsg.includes("404") || rawMsg.includes("NOT_FOUND") || rawMsg.includes("no longer available");
-
-          lastError = err instanceof Error ? err : new Error(rawMsg);
-
-          // If model is not available for this key/API version, immediately jump to next model
-          if (isNotFound) {
-            break;
-          }
-
-          // If it's a transient high demand spike or rate limit, wait briefly and retry
-          if ((isDemandSpike || isRateLimit) && attempt === 1) {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            continue;
-          }
-
-          // Otherwise break to try next model or next API key
-          break;
+        const rawOutput = response.text || "";
+        if (!rawOutput) {
+          throw new Error("Gemini AI returned an empty response during resume parsing.");
         }
+
+        // Sanitize potential markdown block wrapping
+        const cleaned = rawOutput
+          .replace(/^```json\s*/i, "")
+          .replace(/^```\s*/i, "")
+          .replace(/\s*```$/i, "")
+          .trim();
+
+        const jsonResult = JSON.parse(cleaned);
+        const parsed = ParsedResumeSchema.safeParse(jsonResult);
+        if (!parsed.success) {
+          throw new Error(`Resume schema validation failed: ${parsed.error.message}`);
+        }
+
+        return parsed.data;
+      } catch (err: unknown) {
+        const rawMsg = err instanceof Error ? err.message : String(err);
+        lastError = err instanceof Error ? err : new Error(rawMsg);
+        // Instant failover: immediately proceed to next candidate model without sleeping
+        continue;
       }
     }
   }
