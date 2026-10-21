@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ResumeListItem, deleteResume, uploadAndParseResume } from "@/features/resume/actions";
+import { ResumeListItem, deleteResume, getResumesList, uploadAndParseResume } from "@/features/resume/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -28,9 +28,21 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
+  // Keep state synchronized with parent/RSC props
+  React.useEffect(() => {
+    setResumes(initialResumes);
+  }, [initialResumes]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || !e.target.files[0]) return;
     const file = e.target.files[0];
+
+    // Explicit validation check: intercept immediately if file stream is empty / 0 bytes
+    if (file.size === 0) {
+      setUploadError("Corrupted document stream - File size is 0 bytes.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
     const name = file.name.toLowerCase();
     if (!name.endsWith(".pdf") && !name.endsWith(".docx")) {
@@ -43,12 +55,19 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      // Ensure native File binary contents are fully preservation-appended with filename
+      formData.append("file", file, file.name);
 
       const res = await uploadAndParseResume(formData);
       if (!res.ok) {
         setUploadError(res.error || "Failed to upload and parse resume.");
       } else {
+        setUploadError(null);
+        // Refresh local state immediately so user sees the newly uploaded resume right away
+        const fresh = await getResumesList();
+        if (fresh.ok) {
+          setResumes(fresh.data);
+        }
         router.refresh();
       }
     } catch (err: unknown) {
@@ -113,6 +132,10 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
             accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             className="hidden"
             onChange={handleFileChange}
+            onClick={(e) => {
+              // Reset value so selecting the same file triggers onChange
+              (e.currentTarget as HTMLInputElement).value = "";
+            }}
             disabled={isUploading}
           />
           <Button
@@ -135,10 +158,36 @@ export function ResumeList({ initialResumes }: ResumeListProps) {
         </div>
       </div>
 
+      {/* Uploading progress notification */}
+      {isUploading && (
+        <div className="flex items-center gap-3 p-4 text-xs rounded-xl bg-[#ACF417]/10 border border-[#ACF417]/30 text-zinc-800 dark:text-zinc-200">
+          <HugeiconsIcon icon={Loading03Icon} size={18} className="animate-spin text-[#ACF417] shrink-0" />
+          <div>
+            <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">Uploading & Parsing Resume...</p>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Gemini AI is reading your document and extracting work experiences, skills, and education. This takes approximately 10–15 seconds.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error notification */}
       {uploadError && (
-        <div className="flex items-center gap-2 p-3.5 text-xs rounded-xl bg-red-950/60 border border-red-800 text-red-300">
-          <HugeiconsIcon icon={AlertCircleIcon} size={16} />
-          <span>{uploadError}</span>
+        <div className="flex items-start justify-between gap-3 p-4 text-xs rounded-xl bg-red-950/60 border border-red-800 text-red-200">
+          <div className="flex items-start gap-2.5">
+            <HugeiconsIcon icon={AlertCircleIcon} size={18} className="shrink-0 text-red-400 mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-red-300">Upload Issue</p>
+              <p className="text-red-300/90 mt-0.5">{uploadError}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setUploadError(null)}
+            className="text-red-400 hover:text-red-200 text-xs font-semibold px-2 py-1 rounded"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

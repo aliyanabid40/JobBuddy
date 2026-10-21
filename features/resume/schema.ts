@@ -1,69 +1,201 @@
 import { z } from "zod";
 
+/** Coerces null/undefined → "" so Gemini nulls don't break Zod */
+const safeStr = z.union([z.string(), z.null(), z.undefined()]).transform((v) => v ?? "");
+/** Coerces null/undefined → false */
+const safeBool = z.union([z.boolean(), z.null(), z.undefined()]).transform((v) => v ?? false);
+/** Coerces null/undefined → [] */
+const safeStrArray = z
+  .union([z.array(z.union([z.string(), z.null()])), z.null(), z.undefined()])
+  .transform((v) => (v ?? []).map((s) => (s == null ? "" : s)).filter((s) => s.trim().length > 0));
+
 export const ProfileInfoSchema = z.object({
-  full_name: z.string().default(""),
-  email: z.string().default(""),
-  phone: z.string().default(""),
-  location: z.string().default(""),
-  github_url: z.string().default(""),
-  linkedin_url: z.string().default(""),
-  website_url: z.string().default(""),
-  summary: z.string().default(""),
+  full_name: safeStr,
+  email: safeStr,
+  phone: safeStr,
+  location: safeStr,
+  github_url: safeStr,
+  linkedin_url: safeStr,
+  website_url: safeStr,
+  summary: safeStr,
 });
 
 export const SkillItemSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Skill name is required"),
-  category: z.string().default("General"),
+  category: safeStr.transform((v) => v || "General"),
 });
 
 export const ExperienceItemSchema = z.object({
   id: z.string().optional(),
   company: z.string().min(1, "Company name is required"),
   title: z.string().min(1, "Job title is required"),
-  location: z.string().default(""),
-  start_date: z.string().default(""),
-  end_date: z.string().default(""),
-  is_current: z.boolean().default(false),
-  description: z.string().default(""),
-  responsibilities: z.array(z.string()).default([]),
+  location: safeStr,
+  start_date: safeStr,
+  end_date: safeStr,
+  is_current: safeBool,
+  description: safeStr,
+  responsibilities: safeStrArray,
 });
 
 export const EducationItemSchema = z.object({
   id: z.string().optional(),
   institution: z.string().min(1, "Institution is required"),
-  degree: z.string().default(""),
-  field_of_study: z.string().default(""),
-  start_date: z.string().default(""),
-  end_date: z.string().default(""),
-  gpa: z.string().default(""),
+  degree: safeStr,
+  field_of_study: safeStr,
+  start_date: safeStr,
+  end_date: safeStr,
+  gpa: safeStr,
 });
 
 export const ProjectItemSchema = z.object({
   id: z.string().optional(),
   title: z.string().min(1, "Project title is required"),
-  description: z.string().default(""),
-  url: z.string().default(""),
-  github_url: z.string().default(""),
-  technologies: z.array(z.string()).default([]),
+  description: safeStr,
+  url: safeStr,
+  github_url: safeStr,
+  technologies: safeStrArray,
 });
 
 export const CertificationItemSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Certification name is required"),
-  issuer: z.string().default(""),
-  issue_date: z.string().default(""),
-  expiration_date: z.string().default(""),
-  credential_url: z.string().default(""),
+  issuer: safeStr,
+  issue_date: safeStr,
+  expiration_date: safeStr,
+  credential_url: safeStr,
 });
 
+const safeSkillItem = z
+  .object({
+    id: z.string().optional(),
+    name: safeStr,
+    category: safeStr.transform((v) => v || "General"),
+  })
+  .passthrough();
+
+const safeExperienceItem = z
+  .object({
+    id: z.string().optional(),
+    company: safeStr,
+    title: safeStr,
+    location: safeStr,
+    start_date: safeStr,
+    end_date: safeStr,
+    is_current: safeBool,
+    description: safeStr,
+    responsibilities: safeStrArray,
+  })
+  .passthrough();
+
+const safeEducationItem = z
+  .object({
+    id: z.string().optional(),
+    institution: safeStr,
+    degree: safeStr,
+    field_of_study: safeStr,
+    start_date: safeStr,
+    end_date: safeStr,
+    gpa: safeStr,
+  })
+  .passthrough();
+
+const safeProjectItem = z
+  .object({
+    id: z.string().optional(),
+    title: safeStr,
+    description: safeStr,
+    url: safeStr,
+    github_url: safeStr,
+    technologies: safeStrArray,
+  })
+  .passthrough();
+
+const safeCertificationItem = z
+  .object({
+    id: z.string().optional(),
+    name: safeStr,
+    issuer: safeStr,
+    issue_date: safeStr,
+    expiration_date: safeStr,
+    credential_url: safeStr,
+  })
+  .passthrough();
+
+/** Top-level parsed resume schema — all arrays default to [] on missing/null/undefined */
 export const ParsedResumeSchema = z.object({
-  profile: ProfileInfoSchema,
-  skills: z.array(SkillItemSchema).default([]),
-  experiences: z.array(ExperienceItemSchema).default([]),
-  educations: z.array(EducationItemSchema).default([]),
-  projects: z.array(ProjectItemSchema).default([]),
-  certifications: z.array(CertificationItemSchema).default([]),
+  profile: z
+    .union([ProfileInfoSchema, z.null(), z.undefined()])
+    .transform((p) => p ?? {
+      full_name: "",
+      email: "",
+      phone: "",
+      location: "",
+      github_url: "",
+      linkedin_url: "",
+      website_url: "",
+      summary: "",
+    }),
+  skills: z
+    .array(z.unknown())
+    .nullish()
+    .transform((rawArr) => {
+      if (!Array.isArray(rawArr)) return [];
+      return rawArr
+        .map((item) => {
+          const parsed = safeSkillItem.safeParse(item);
+          return parsed.success && parsed.data.name.trim().length > 0 ? parsed.data : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+    }),
+  experiences: z
+    .array(z.unknown())
+    .nullish()
+    .transform((rawArr) => {
+      if (!Array.isArray(rawArr)) return [];
+      return rawArr
+        .map((item) => {
+          const parsed = safeExperienceItem.safeParse(item);
+          return parsed.success && parsed.data.company.trim().length > 0 ? parsed.data : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+    }),
+  educations: z
+    .array(z.unknown())
+    .nullish()
+    .transform((rawArr) => {
+      if (!Array.isArray(rawArr)) return [];
+      return rawArr
+        .map((item) => {
+          const parsed = safeEducationItem.safeParse(item);
+          return parsed.success && parsed.data.institution.trim().length > 0 ? parsed.data : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+    }),
+  projects: z
+    .array(z.unknown())
+    .nullish()
+    .transform((rawArr) => {
+      if (!Array.isArray(rawArr)) return [];
+      return rawArr
+        .map((item) => {
+          const parsed = safeProjectItem.safeParse(item);
+          return parsed.success && parsed.data.title.trim().length > 0 ? parsed.data : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+    }),
+  certifications: z
+    .array(z.unknown())
+    .nullish()
+    .transform((rawArr) => {
+      if (!Array.isArray(rawArr)) return [];
+      return rawArr
+        .map((item) => {
+          const parsed = safeCertificationItem.safeParse(item);
+          return parsed.success && parsed.data.name.trim().length > 0 ? parsed.data : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
+    }),
 });
 
 export type ProfileInfo = z.infer<typeof ProfileInfoSchema>;

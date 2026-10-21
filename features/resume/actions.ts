@@ -42,8 +42,7 @@ export async function uploadAndParseResume(formData: FormData): Promise<ActionRe
       return { ok: false, error: "No file provided." };
     }
 
-    const fileName = file.name;
-    const fileSize = file.size;
+    const fileName = file.name || "resume";
     const lowerName = fileName.toLowerCase();
 
     let fileType: "pdf" | "docx";
@@ -55,14 +54,21 @@ export async function uploadAndParseResume(formData: FormData): Promise<ActionRe
       return { ok: false, error: "Unsupported file format. Please upload a PDF or DOCX file." };
     }
 
-    // Limit to 10MB
-    const MAX_SIZE = 10 * 1024 * 1024;
-    if (fileSize > MAX_SIZE) {
-      return { ok: false, error: "File exceeds maximum size limit of 10MB." };
-    }
-
+    // Convert incoming file stream to buffer and measure exact physical byte size directly from buffer chunk stream
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const measuredFileSize = buffer.length > 0 ? buffer.length : (typeof file.size === "number" ? file.size : 0);
+
+    // Explicit validation check: intercept immediately if file stream is empty / 0 bytes
+    if (measuredFileSize === 0 || buffer.length === 0) {
+      return { ok: false, error: "Corrupted document stream - File size is 0 bytes." };
+    }
+
+    // Limit to 10MB
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (measuredFileSize > MAX_SIZE) {
+      return { ok: false, error: "File exceeds maximum size limit of 10MB." };
+    }
 
     // 1. Upload to Supabase Storage using adminClient to ensure bucket exists and bypass Storage RLS barriers
     const adminClient = createAdminClient();
@@ -92,32 +98,19 @@ export async function uploadAndParseResume(formData: FormData): Promise<ActionRe
       return { ok: false, error: `Storage upload failed: ${uploadError.message}` };
     }
 
-    // 2. Create record in resumes table
-    let resumeInsertRes = await supabase
+    // 2. Create record in resumes table with verified buffer tracking length
+    const resumeInsertRes = await supabase
       .from("resumes")
       .insert({
         user_id: user.id,
         storage_path: storagePath,
         file_type: fileType,
         file_name: fileName,
-        file_size: fileSize,
+        file_size: measuredFileSize,
         parse_status: "parsing",
       })
       .select("id")
       .single();
-
-    if (resumeInsertRes.error && resumeInsertRes.error.message?.includes("file_name")) {
-      resumeInsertRes = await supabase
-        .from("resumes")
-        .insert({
-          user_id: user.id,
-          storage_path: storagePath,
-          file_type: fileType,
-          parse_status: "parsing",
-        })
-        .select("id")
-        .single();
-    }
 
     if (resumeInsertRes.error || !resumeInsertRes.data) {
       return { ok: false, error: `Failed to register resume: ${resumeInsertRes.error?.message}` };
@@ -125,7 +118,7 @@ export async function uploadAndParseResume(formData: FormData): Promise<ActionRe
 
     const resumeId = resumeInsertRes.data.id;
 
-    // 3. Extract text
+    // 3. Extract text — fail fast with a clear error if extraction yields nothing
     let extractedText = "";
     try {
       extractedText = await extractResumeText(buffer, fileType);
@@ -138,6 +131,20 @@ export async function uploadAndParseResume(formData: FormData): Promise<ActionRe
       return { ok: false, error: msg };
     }
 
+    // Explicit guard: text must be non-trivially long before we hit the AI
+    if (!extractedText || extractedText.trim().length < 30) {
+      await supabase
+        .from("resumes")
+        .update({ parse_status: "failed" })
+        .eq("id", resumeId);
+      return {
+        ok: false,
+        error:
+          `Text extraction succeeded but returned only ${extractedText?.trim().length ?? 0} characters — too short to parse. ` +
+          "Please ensure the file is a text-based PDF or DOCX and not a scanned image.",
+      };
+    }
+
     // 4. Parse with Gemini AI
     let parsedData: ParsedResumeData;
     try {
@@ -148,7 +155,7 @@ export async function uploadAndParseResume(formData: FormData): Promise<ActionRe
         .update({ parse_status: "failed" })
         .eq("id", resumeId);
       const msg = parseErr instanceof Error ? parseErr.message : "AI parsing failed.";
-      return { ok: false, error: msg };
+      return { ok: false, error: `AI resume parsing failed: ${msg}` };
     }
 
     // 5. Hydrate database tables
@@ -253,8 +260,8 @@ export async function uploadAndParseResume(formData: FormData): Promise<ActionRe
       .eq("id", resumeId);
 
     revalidatePath("/dashboard", "layout");
-    revalidatePath("/dashboard/profile");
-    revalidatePath("/dashboard/resume");
+    revalidatePath("/dashboard/profile", "page");
+    revalidatePath("/dashboard/resume", "page");
 
     return {
       ok: true,
@@ -622,16 +629,38 @@ export async function getResumesList(): Promise<ActionResult<ResumeListItem[]>> 
       return { ok: false, error: error.message };
     }
 
-    // Generate signed download URLs
+    // Generate signed download URLs and ensure true file size is always returned
     const items: ResumeListItem[] = await Promise.all(
       (rows || []).map(async (row) => {
         let downloadUrl: string | null = null;
+        let effectiveSize = Number(row.file_size || 0);
+
         try {
           const adminClient = createAdminClient();
           const { data: signData } = await adminClient.storage
             .from("resumes")
             .createSignedUrl(row.storage_path, 3600); // 1 hour
           downloadUrl = signData?.signedUrl || null;
+
+          // Self-healing fallback: if DB file_size is 0 or null, retrieve size directly from storage artifact metadata
+          if (effectiveSize === 0 && row.storage_path) {
+            const pathParts = row.storage_path.split("/");
+            const folder = pathParts[0];
+            const fileKey = pathParts.slice(1).join("/");
+            const { data: storageFiles } = await adminClient.storage
+              .from("resumes")
+              .list(folder, { search: fileKey });
+            const matched = storageFiles?.find((f) => f.name === fileKey || row.storage_path.endsWith(f.name));
+            if (matched?.metadata?.size) {
+              effectiveSize = Number(matched.metadata.size);
+              // Asynchronously backfill the database record
+              supabase
+                .from("resumes")
+                .update({ file_size: effectiveSize, file_name: row.file_name || matched.name })
+                .eq("id", row.id)
+                .then();
+            }
+          }
         } catch {
           downloadUrl = null;
         }
@@ -640,7 +669,7 @@ export async function getResumesList(): Promise<ActionResult<ResumeListItem[]>> 
           id: row.id,
           file_name: row.file_name || row.storage_path.split("/").pop() || "resume",
           file_type: row.file_type,
-          file_size: Number(row.file_size || 0),
+          file_size: effectiveSize,
           parse_status: row.parse_status,
           created_at: row.created_at,
           download_url: downloadUrl,

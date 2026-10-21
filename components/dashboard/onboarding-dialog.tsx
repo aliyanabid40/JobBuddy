@@ -68,6 +68,13 @@ export function OnboardingDialog({ initialOnboardingDone }: OnboardingDialogProp
 
   const validateAndSetFile = (selectedFile: File) => {
     setErrorMessage(null);
+
+    // Explicit validation check: intercept immediately if file stream is empty / 0 bytes
+    if (selectedFile.size === 0) {
+      setErrorMessage("Corrupted document stream - File size is 0 bytes.");
+      return;
+    }
+
     const name = selectedFile.name.toLowerCase();
     if (!name.endsWith(".pdf") && !name.endsWith(".docx")) {
       setErrorMessage("Please select a PDF or DOCX resume file.");
@@ -83,6 +90,12 @@ export function OnboardingDialog({ initialOnboardingDone }: OnboardingDialogProp
   const handleUploadAndParse = async () => {
     if (!file) return;
 
+    if (file.size === 0) {
+      setStatus("error");
+      setErrorMessage("Corrupted document stream - File size is 0 bytes.");
+      return;
+    }
+
     setErrorMessage(null);
     setStatus("uploading");
 
@@ -93,7 +106,8 @@ export function OnboardingDialog({ initialOnboardingDone }: OnboardingDialogProp
       const timer3 = setTimeout(() => setStatus("saving"), 4500);
 
       const formData = new FormData();
-      formData.append("file", file);
+      // Ensure native File binary contents are fully preservation-appended with filename
+      formData.append("file", file, file.name);
 
       const result = await uploadAndParseResume(formData);
 
@@ -181,6 +195,10 @@ export function OnboardingDialog({ initialOnboardingDone }: OnboardingDialogProp
               accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               className="hidden"
               onChange={handleFileChange}
+              onClick={(e) => {
+                e.stopPropagation();
+                (e.currentTarget as HTMLInputElement).value = "";
+              }}
               disabled={isProcessing}
             />
 

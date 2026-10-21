@@ -3,6 +3,7 @@
 import * as React from "react";
 import { FullProfileData, ProfileInfo, SkillItem, ExperienceItem, EducationItem, ProjectItem, CertificationItem } from "@/features/resume/schema";
 import {
+  getFullProfile,
   updatePersonalInfo,
   saveSkills,
   saveExperiences,
@@ -32,6 +33,7 @@ import {
   Loading03Icon,
   FloppyDiskIcon,
   Certificate01Icon,
+  RefreshIcon,
 } from "@hugeicons/core-free-icons";
 
 interface ProfileEditorProps {
@@ -45,6 +47,45 @@ export function ProfileEditor({ initialData }: ProfileEditorProps) {
   const [educations, setEducations] = React.useState<EducationItem[]>(initialData.educations);
   const [projects, setProjects] = React.useState<ProjectItem[]>(initialData.projects);
   const [certifications, setCertifications] = React.useState<CertificationItem[]>(initialData.certifications);
+
+  // Sync state whenever initialData changes from Server Component
+  React.useEffect(() => {
+    setProfile(initialData.profile);
+    setSkills(initialData.skills);
+    setExperiences(initialData.experiences);
+    setEducations(initialData.educations);
+    setProjects(initialData.projects);
+    setCertifications(initialData.certifications);
+  }, [initialData]);
+
+  // Syncing state
+  const [isSyncing, setIsSyncing] = React.useState(false);
+
+  // Client-side auto-fetch on mount: ensures that if Next.js pre-fetched before
+  // resume parse finished, the live hydrated data from DB is applied immediately!
+  const syncWithDatabase = React.useCallback(async (showToast = false) => {
+    try {
+      setIsSyncing(true);
+      const res = await getFullProfile();
+      if (res.ok && res.data) {
+        setProfile(res.data.profile);
+        setSkills(res.data.skills);
+        setExperiences(res.data.experiences);
+        setEducations(res.data.educations);
+        setProjects(res.data.projects);
+        setCertifications(res.data.certifications);
+        if (showToast) {
+          showFeedback("Profile synced with latest database records!");
+        }
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    syncWithDatabase(false);
+  }, [syncWithDatabase]);
 
   // Controlled active tab
   const [activeTab, setActiveTab] = React.useState<string>("personal");
@@ -301,13 +342,30 @@ export function ProfileEditor({ initialData }: ProfileEditorProps) {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Profile
-        </h1>
-        <p className="text-zinc-500 dark:text-zinc-400 mt-0.5 text-xs">
-          Review and edit the information extracted from your resume.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+            Profile
+          </h1>
+          <p className="text-zinc-500 dark:text-zinc-400 mt-0.5 text-xs">
+            Review and edit the information extracted from your resume.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => syncWithDatabase(true)}
+          disabled={isSyncing}
+          className="border-zinc-300 dark:border-zinc-800 text-xs font-medium gap-2 self-start sm:self-auto"
+        >
+          <HugeiconsIcon
+            icon={isSyncing ? Loading03Icon : RefreshIcon}
+            size={14}
+            className={isSyncing ? "animate-spin text-[#ACF417]" : ""}
+          />
+          <span>{isSyncing ? "Syncing..." : "Sync from Database"}</span>
+        </Button>
       </div>
 
       {/* Toast Feedback */}
