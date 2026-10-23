@@ -81,10 +81,10 @@ describe("Clean White Theme & Image 2 Compliance", () => {
   });
 
   it("verifies job cards have clean white background", () => {
-    const cardPath = path.resolve(process.cwd(), "components/jobs/job-card.tsx");
+    const cardPath = path.resolve(process.cwd(), "components/jobs/job-row.tsx");
     const content = fs.readFileSync(cardPath, "utf-8");
-    assert.ok(content.includes('bg-white border border-zinc-200'), "Job cards must have bg-white border border-zinc-200");
-    assert.equal(content.includes('rgba(255,255,255,0.035)'), false, "Job cards must not have dark background");
+    assert.ok(content.includes('bg-white border border-zinc-200'), "Job rows must have bg-white border border-zinc-200");
+    assert.equal(content.includes('rgba(255,255,255,0.035)'), false, "Job rows must not have dark background");
   });
 
   it("verifies profile completeness widget has white background and green ring", () => {

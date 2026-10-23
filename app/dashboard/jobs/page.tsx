@@ -24,7 +24,7 @@ export default async function JobsPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/sign-in");
+    redirect("/login");
   }
 
   // Load profile sections to compute completeness score

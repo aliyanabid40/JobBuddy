@@ -36,6 +36,8 @@ export function JobsSidebar({
   const radius = 34;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (completenessScore / 100) * circumference;
+  // Ring fill uses the readable lime token (--accent-lime); the brighter brand
+  // accent token reference is #ACF417 (--color-neon-lime).
   const color =
     completenessScore >= 80
       ? "var(--accent-lime)"

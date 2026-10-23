@@ -111,18 +111,22 @@ export async function getJobsFromDB(
     platform: row.platform as Platform,
     title: row.title,
     company: row.company,
-    company_logo: row.company_logo ?? "",
-    location: row.location ?? "Remote",
-    salary: row.salary ?? "Competitive",
-    job_type: row.job_type ?? "Full-time",
-    experience_level: row.experience_level ?? row.level ?? "mid",
-    level: row.experience_level ?? row.level ?? "mid",
+    company_logo: row.company_logo ?? null,
+    company_domain: row.company_domain ?? null,
+    logo_source: row.logo_source ?? null,
+    logo_checked_at: row.logo_checked_at ?? null,
+    location: row.location ?? "",
+    salary: row.salary ?? null,
+    job_type: row.job_type ?? "",
+    experience_level: row.experience_level ?? row.level ?? "",
+    level: row.experience_level ?? row.level ?? "",
     description: row.description ?? "",
     tags: Array.isArray(row.tags) ? row.tags : [],
     match_score: row.match_score ?? 0,
     job_url: row.job_url ?? row.url,
     source_url: row.source_url ?? row.url,
     url: row.job_url ?? row.url,
+    posted_at: row.posted_at ?? null,
     applied_status: row.applied_status ?? "not_applied",
     saved_status: Boolean(row.saved_status ?? row.is_saved),
     is_saved: Boolean(row.saved_status ?? row.is_saved),
@@ -161,24 +165,28 @@ export async function replaceJobsInDB(
 
   if (jobs.length === 0) return;
 
-  // 2. Insert fresh jobs
+  // 2. Insert fresh jobs.
+  // Logo cache columns (company_domain / logo_source / logo_checked_at) are
+  // written separately by persistCompanyLogos(), so the core job cache never
+  // depends on the optional logo migration being applied.
   const rows = jobs.map((job) => ({
     user_id: userId,
     platform: job.platform,
     title: job.title,
     company: job.company,
-    company_logo: job.company_logo ?? "",
+    company_logo: job.company_logo ?? null,
     location: job.location,
     salary: job.salary,
     job_type: job.job_type,
-    experience_level: job.experience_level || job.level || "mid",
-    level: job.experience_level || job.level || "mid",
+    experience_level: job.experience_level || job.level || null,
+    level: job.experience_level || job.level || null,
     description: job.description,
     tags: Array.isArray(job.tags) ? job.tags : [],
     match_score: job.match_score,
     job_url: job.job_url || job.url,
     source_url: job.source_url || job.url,
     url: job.job_url || job.url,
+    posted_at: job.posted_at ?? null,
     applied_status: job.applied_status || "not_applied",
     saved_status: Boolean(job.saved_status ?? job.is_saved),
     is_saved: Boolean(job.saved_status ?? job.is_saved),
@@ -192,6 +200,44 @@ export async function replaceJobsInDB(
   if (insertError) {
     console.error("[cache] replaceJobsInDB insert error:", insertError.message);
     throw new Error(`Failed to cache jobs: ${insertError.message}`);
+  }
+}
+
+/**
+ * Persist resolved logo results for a user's cached jobs, keyed by company.
+ * Best-effort: a missing logo cache column must never break job loading, and
+ * every row for the same company is updated in one statement.
+ */
+export async function persistCompanyLogos(
+  userId: string,
+  results: {
+    company: string;
+    domain: string | null;
+    logoUrl: string | null;
+    source: string;
+  }[]
+): Promise<void> {
+  if (!userId || results.length === 0) return;
+  const supabase = await createClient();
+  const checkedAt = new Date().toISOString();
+
+  for (const result of results) {
+    const { error } = await supabase
+      .from("jobs_cache")
+      .update({
+        company_logo: result.logoUrl,
+        company_domain: result.domain,
+        logo_source: result.source,
+        logo_checked_at: checkedAt,
+      })
+      .eq("user_id", userId)
+      .eq("company", result.company);
+
+    if (error) {
+      console.warn(
+        `[cache] persistCompanyLogos skipped for "${result.company}": ${error.message}`
+      );
+    }
   }
 }
 

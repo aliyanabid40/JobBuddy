@@ -1,19 +1,19 @@
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { Job, Platform } from "@/lib/jobs/types";
 import { fetchJobsForUser, refreshJobCache } from "@/features/jobs/actions";
 import { WelcomeBanner } from "./welcome-banner";
 import { PlatformSelector } from "./platform-selector";
-import { JobCard } from "./job-card";
+import { JobRow } from "./job-row";
 import {
   JobsLoadingSkeleton,
   JobsEmptyState,
   JobsErrorState,
 } from "./jobs-skeleton";
 import { JobsSidebar } from "./jobs-sidebar";
-import { Search, ArrowUpDown, Info, Briefcase, Bookmark, CheckSquare } from "lucide-react";
+import { Search, ArrowUpDown, Info, Briefcase, Bookmark, CheckSquare, X } from "lucide-react";
 import { filterJobsWithFallback } from "@/lib/jobs/query-parser";
 
 interface JobsDashboardClientProps {
@@ -69,8 +69,109 @@ export function JobsDashboardClient({
   const [selectedPlatforms, setSelectedPlatforms] =
     useState<Platform[]>(ALL_PLATFORMS);
 
-  // Search filter
+  // Main Tavily online search input
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Compact header search input (client-side debounced ~200ms)
+  const [rawCompactSearch, setRawCompactSearch] = useState("");
+  const [debouncedCompactSearch, setDebouncedCompactSearch] = useState("");
+
+  // Debounce compact section header search input (~200ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCompactSearch(rawCompactSearch);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [rawCompactSearch]);
+
+  // Unique company key so the effect only re-runs when the company set changes
+  // (never on the logo state updates it itself writes back).
+  const companyKey = useMemo(
+    () =>
+      Array.from(
+        new Set(jobs.map((j) => `${j.company}`.trim().toLowerCase()))
+      )
+        .sort()
+        .join("|"),
+    [jobs]
+  );
+
+  // Trigger server-side logo resolution for logos that are missing or stale.
+  useEffect(() => {
+    if (jobs.length === 0) return;
+
+    const snapshot = jobs;
+    fetch("/api/logo/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jobs: snapshot.map((j) => ({
+          company: j.company,
+          company_logo: j.company_logo,
+          company_domain: j.company_domain,
+          logo_source: j.logo_source,
+          logo_checked_at: j.logo_checked_at,
+          description: j.description,
+          job_url: j.job_url || j.url,
+        })),
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.ok || !Array.isArray(data.results) || data.results.length === 0) {
+          return;
+        }
+
+        const byCompany = new Map<
+          string,
+          {
+            logoUrl: string | null;
+            domain: string | null;
+            source: string | null;
+          }
+        >();
+        for (const r of data.results as {
+          company?: string;
+          logoUrl?: string | null;
+          domain?: string | null;
+          source?: string | null;
+        }[]) {
+          if (!r?.company) continue;
+          byCompany.set(r.company.trim().toLowerCase(), {
+            logoUrl: r.logoUrl ?? null,
+            domain: r.domain ?? null,
+            source: r.source ?? null,
+          });
+        }
+        if (byCompany.size === 0) return;
+
+        const checkedAt = new Date().toISOString();
+        setJobs((prev) =>
+          prev.map((j) => {
+            const resolved = byCompany.get(j.company.trim().toLowerCase());
+            if (!resolved) return j;
+            // Only apply when something actually changed (keeps renders stable).
+            if (
+              (j.company_logo ?? null) === resolved.logoUrl &&
+              (j.company_domain ?? null) === resolved.domain
+            ) {
+              return j;
+            }
+            return {
+              ...j,
+              company_logo: resolved.logoUrl,
+              company_domain: resolved.domain,
+              logo_source: resolved.source,
+              logo_checked_at: checkedAt,
+            };
+          })
+        );
+      })
+      .catch(() => {
+        // ignore background logo resolution errors
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyKey]);
 
   function setTab(tab: ViewTab) {
     const params = new URLSearchParams(searchParams.toString());
@@ -162,7 +263,7 @@ export function JobsDashboardClient({
     return jobs.filter((j) => j.applied_status === "applied").length;
   }, [jobs]);
 
-  // First: apply tab filter, then platform filter, then search query
+  // Filter pipeline: Tab filter -> Platform filter -> Online search query -> Compact debounced header search
   const { filteredJobs, activeFallbackNotice } = useMemo(() => {
     // 1. Tab filter
     let tabJobs = jobs;
@@ -173,33 +274,61 @@ export function JobsDashboardClient({
     }
 
     // 2. Platform filter (only in "all" view)
-    const platformJobs =
+    let platformJobs =
       activeTab === "all"
         ? tabJobs.filter((job) => selectedPlatforms.includes(job.platform))
         : tabJobs;
 
-    // 3. Query filter
-    if (!searchQuery.trim()) {
+    // 3. Online query filter if applied
+    let noticeMessage: string | null = null;
+    if (searchQuery.trim()) {
+      const result = filterJobsWithFallback(platformJobs, searchQuery);
+      platformJobs = result.matchedJobs;
+      noticeMessage = result.isFallback ? result.fallbackMessage ?? null : null;
+    }
+
+    // 4. Compact client-side debounced search input (title, company, location, skills)
+    if (!debouncedCompactSearch.trim()) {
       return {
         filteredJobs: platformJobs,
-        activeFallbackNotice: null,
+        activeFallbackNotice: noticeMessage,
       };
     }
 
-    const result = filterJobsWithFallback(platformJobs, searchQuery);
+    const term = debouncedCompactSearch.trim().toLowerCase();
+    const compactMatched = platformJobs.filter((j) => {
+      const matchTitle = (j.title || "").toLowerCase().includes(term);
+      const matchCompany = (j.company || "").toLowerCase().includes(term);
+      const matchLocation = (j.location || "").toLowerCase().includes(term);
+      const matchSkills = (j.tags || []).some((t) =>
+        t.toLowerCase().includes(term)
+      );
+      return matchTitle || matchCompany || matchLocation || matchSkills;
+    });
+
     return {
-      filteredJobs: result.matchedJobs,
-      activeFallbackNotice: result.isFallback ? result.fallbackMessage : null,
+      filteredJobs: compactMatched,
+      activeFallbackNotice: noticeMessage,
     };
-  }, [jobs, selectedPlatforms, searchQuery, activeTab]);
+  }, [
+    jobs,
+    selectedPlatforms,
+    searchQuery,
+    debouncedCompactSearch,
+    activeTab,
+  ]);
 
   // Empty state messages per tab
-  const emptyStateMessages: Record<ViewTab, { title: string; subtitle: string }> = {
+  const emptyStateMessages: Record<
+    ViewTab,
+    { title: string; subtitle: string }
+  > = {
     all: {
       title: "No jobs found",
-      subtitle: searchQuery
-        ? `No jobs match "${searchQuery}". Try searching online.`
-        : "No jobs yet. Refresh to fetch new matches.",
+      subtitle:
+        debouncedCompactSearch || searchQuery
+          ? `No jobs match "${debouncedCompactSearch || searchQuery}". Try adjusting search.`
+          : "No jobs yet. Refresh to fetch new matches.",
     },
     applied: {
       title: "No applied jobs yet",
@@ -227,7 +356,6 @@ export function JobsDashboardClient({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left / Center Column: Platform Cards + Tabs + Filter Bar + Top Matches */}
         <div className="lg:col-span-8 xl:col-span-8 space-y-6 min-w-0">
-
           {/* ── Tab Bar: All | Applied | Saved ── */}
           <div
             role="tablist"
@@ -310,7 +438,7 @@ export function JobsDashboardClient({
           </div>
 
           {/* Top Job Matches List Header */}
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-zinc-900 tracking-tight">
                 {activeTab === "saved"
@@ -324,12 +452,37 @@ export function JobsDashboardClient({
               </span>
             </div>
 
-            {activeTab === "all" && (
-              <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Ranked by match score</span>
+            {/* Right: Compact debounced search input + Ranked by match score */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center min-w-[180px] sm:min-w-[220px]">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+                <input
+                  id="section-compact-search"
+                  type="text"
+                  placeholder="Search jobs..."
+                  value={rawCompactSearch}
+                  onChange={(e) => setRawCompactSearch(e.target.value)}
+                  className="w-full bg-white border border-zinc-200 rounded-lg pl-8 pr-7 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-[#84cc16] focus:ring-1 focus:ring-[#84cc16]/30 transition-all"
+                />
+                {rawCompactSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setRawCompactSearch("")}
+                    className="absolute right-2 text-zinc-400 hover:text-zinc-600 p-0.5 rounded-full"
+                    title="Clear filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
-            )}
+
+              {activeTab === "all" && (
+                <div className="hidden md:flex items-center gap-1.5 text-xs text-zinc-400 flex-shrink-0">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Ranked by match score</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Location fallback notice banner */}
@@ -341,20 +494,28 @@ export function JobsDashboardClient({
           )}
 
           {/* Job List / Empty States */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {isRefreshing || loading ? (
               <JobsLoadingSkeleton />
             ) : error ? (
-              <JobsErrorState error={error} onRetry={() => handleRefreshJobs()} />
+              <JobsErrorState
+                error={error}
+                onRetry={() => handleRefreshJobs()}
+              />
             ) : filteredJobs.length === 0 ? (
               /* Per-tab empty state */
               activeTab === "all" ? (
                 <JobsEmptyState
-                  searchQuery={searchQuery.trim()}
-                  onSearchOnline={() => handleRefreshJobs(searchQuery.trim())}
+                  searchQuery={debouncedCompactSearch || searchQuery.trim()}
+                  onSearchOnline={() =>
+                    handleRefreshJobs(
+                      debouncedCompactSearch.trim() || searchQuery.trim()
+                    )
+                  }
                   onResetFilters={() => {
                     setSelectedPlatforms(ALL_PLATFORMS);
                     setSearchQuery("");
+                    setRawCompactSearch("");
                     setFallbackNotice(null);
                   }}
                 />
@@ -384,7 +545,7 @@ export function JobsDashboardClient({
               )
             ) : (
               filteredJobs.map((job) => (
-                <JobCard
+                <JobRow
                   key={job.id}
                   job={job}
                   onSaveToggled={handleSaveToggled}

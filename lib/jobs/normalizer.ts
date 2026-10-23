@@ -5,6 +5,7 @@
  */
 
 import type { BraveWebResult, Platform, RawNormalizedJob } from "./types";
+import { isKnownSkillToken, looksLikeSkillList, sanitizeText } from "./cleaner";
 
 /** Hostname → Platform mapping */
 const HOSTNAME_PLATFORM_MAP: Record<string, Platform> = {
@@ -118,24 +119,37 @@ function toTitleCase(str: string): string {
  * Extract a readable job title from the Brave result title string.
  */
 function extractTitle(rawTitle: string): string {
-  return rawTitle
+  return sanitizeText(rawTitle)
     .replace(/\s*[|\-–]\s*(greenhouse|lever|workable|wellfound|jobs?).*/i, "")
     .replace(/\s*\|\s*.*$/, "")
     .trim();
 }
 
 /**
- * Extract location hint from description text.
+ * Extract a location hint from description text.
+ *
+ * Only real "City, ST" / "City, Country" shaped values are accepted; anything
+ * that is actually a technology list (e.g. "Docker, Kubernetes") is discarded
+ * so skills can never leak into the location field.
  */
 function extractLocation(description: string): string {
-  const remoteMatch = /\b(remote|hybrid|on-?site)\b/i.exec(description);
-  if (remoteMatch) return toTitleCase(remoteMatch[1]);
+  const cleanDescription = sanitizeText(description);
+  if (!cleanDescription) return "";
 
   const locationMatch =
-    /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)?,\s*(?:[A-Z]{2}|[A-Z][a-z]+))\b/.exec(
-      description
+    /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)?),\s*([A-Z]{2}|[A-Z][a-z]+)\b/.exec(
+      cleanDescription
     );
-  return locationMatch?.[1] ?? "Remote";
+  if (!locationMatch) return "";
+
+  const candidate = locationMatch[0].trim();
+  const parts = candidate.split(",").map((part) => part.trim());
+
+  // Reject skill lists / skill tokens masquerading as a place
+  if (looksLikeSkillList(candidate)) return "";
+  if (parts.some((part) => isKnownSkillToken(part))) return "";
+
+  return candidate;
 }
 
 /**
@@ -144,7 +158,8 @@ function extractLocation(description: string): string {
  * Does NOT fall back to any default value.
  */
 function extractSalary(description: string): string | null {
-  if (!description) return null;
+  const cleanDescription = sanitizeText(description);
+  if (!cleanDescription) return null;
 
   // Patterns: $95,000 - $120,000 | $140k/yr | AED 15,000 - AED 25,000/month | £50k - £70k p.a. | $85/hr
   const patterns = [
@@ -157,7 +172,7 @@ function extractSalary(description: string): string | null {
   ];
 
   for (const pattern of patterns) {
-    const match = pattern.exec(description);
+    const match = pattern.exec(cleanDescription);
     if (match) {
       return match[0].trim();
     }
@@ -170,7 +185,7 @@ function extractSalary(description: string): string | null {
  * Detect job level from title + description.
  */
 function extractLevel(title: string, description: string): string {
-  const text = `${title} ${description}`.toLowerCase();
+  const text = sanitizeText(`${title} ${description}`).toLowerCase();
   if (/\b(staff|principal)\b/.test(text)) return "staff";
   if (/\b(lead|tech lead|architect)\b/.test(text)) return "lead";
   if (/\b(senior|sr\.?)\b/.test(text)) return "senior";
@@ -182,20 +197,21 @@ function extractLevel(title: string, description: string): string {
  * Detect job type (e.g. Remote, Full-time, Contract).
  */
 function extractJobType(title: string, description: string): string {
-  const text = `${title} ${description}`.toLowerCase();
+  const text = sanitizeText(`${title} ${description}`).toLowerCase();
   if (text.includes("remote")) return "Remote";
   if (text.includes("hybrid")) return "Hybrid";
   if (text.includes("contract") || text.includes("freelance")) return "Contract";
   if (text.includes("part-time") || text.includes("part time")) return "Part-time";
   if (text.includes("intern") || text.includes("internship")) return "Internship";
-  return "Full-time";
+  if (text.includes("full-time") || text.includes("full time")) return "Full-time";
+  return "";
 }
 
 /**
  * Extract tech stack tags from title and description.
  */
 function extractTags(title: string, description: string): string[] {
-  const text = `${title} ${description}`;
+  const text = sanitizeText(`${title} ${description}`);
   const found: string[] = [];
 
   for (const keyword of COMMON_TECH_KEYWORDS) {
@@ -205,22 +221,52 @@ function extractTags(title: string, description: string): string[] {
     }
   }
 
-  // Ensure 2-4 tags
-  if (found.length === 0) {
-    return ["React", "TypeScript", "Frontend"];
-  }
   return Array.from(new Set(found)).slice(0, 5);
 }
 
 /**
- * Build company logo URL.
+ * Extract a real posted timestamp when the search result includes one.
  */
-function buildCompanyLogo(company: string): string {
-  const clean = company.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!clean || clean === "techcompany" || clean === "startup") {
-    return "";
+function extractPostedAt(title: string, description: string): string | null {
+  const text = sanitizeText(`${title} ${description}`);
+  if (!text) return null;
+
+  const relativeMatch = /\b(\d+)\s+(minute|minutes|hour|hours|day|days|week|weeks)\s+ago\b/i.exec(
+    text
+  );
+  if (relativeMatch) {
+    const amount = Number(relativeMatch[1]);
+    const unit = relativeMatch[2].toLowerCase();
+    const date = new Date();
+
+    if (unit.startsWith("minute")) {
+      date.setMinutes(date.getMinutes() - amount);
+    } else if (unit.startsWith("hour")) {
+      date.setHours(date.getHours() - amount);
+    } else if (unit.startsWith("day")) {
+      date.setDate(date.getDate() - amount);
+    } else if (unit.startsWith("week")) {
+      date.setDate(date.getDate() - amount * 7);
+    }
+
+    return date.toISOString();
   }
-  return `https://www.google.com/s2/favicons?domain=${clean}.com&sz=128`;
+
+  if (/\bjust now\b/i.test(text)) {
+    return new Date().toISOString();
+  }
+
+  const absoluteMatch = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{1,2},\s+\d{4}\b/i.exec(
+    text
+  );
+  if (absoluteMatch) {
+    const parsed = new Date(absoluteMatch[0]);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -239,18 +285,18 @@ export function normalizeSearchResult(
   if (!title || title.length < 3) return null;
 
   const company = extractCompany(result.url, platform, result.title);
-  const description = result.description ?? "";
+  const description = sanitizeText(result.description ?? "");
   const location = extractLocation(description);
   const salary = extractSalary(description);
   const level = extractLevel(title, description);
   const job_type = extractJobType(title, description);
   const tags = extractTags(title, description);
-  const company_logo = buildCompanyLogo(company);
+  const posted_at = extractPostedAt(result.title, result.description ?? "");
 
   return {
     title,
     company,
-    company_logo,
+    company_logo: null,
     platform,
     job_url: result.url,
     source_url: result.url,
@@ -262,6 +308,7 @@ export function normalizeSearchResult(
     level,
     description,
     tags,
+    posted_at,
   };
 }
 
