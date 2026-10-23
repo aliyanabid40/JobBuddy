@@ -22,7 +22,7 @@ export default async function DashboardLayout({
 
   // Middleware guards /dashboard, but keep defense in depth
   if (!user) {
-    redirect("/sign-in");
+    redirect("/login");
   }
 
   // Check onboarding status

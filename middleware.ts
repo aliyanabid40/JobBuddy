@@ -32,15 +32,20 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Protect /dashboard/* — redirect unauthenticated users to sign-in
-  if (pathname.startsWith("/dashboard") && !user) {
+  // Protected routes: /dashboard, /jobs, /resume, /profile, /application-status, /billing
+  const protectedRoutes = ["/dashboard", "/jobs", "/resume", "/profile", "/application-status", "/billing"];
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+
+  if (isProtectedRoute && !user) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/sign-in";
+    redirectUrl.pathname = "/login";
+    redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If already logged in, skip the auth pages
-  if ((pathname === "/sign-in" || pathname === "/sign-up") && user) {
+  // If already logged in, skip the auth pages (/login, /signup, /forgot-password, /check-email)
+  const authPages = ["/login", "/signup", "/forgot-password", "/check-email"];
+  if (authPages.includes(pathname) && user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);

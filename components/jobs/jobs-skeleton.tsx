@@ -3,39 +3,64 @@
 import React from "react";
 import { AlertCircle, SearchX, RefreshCw } from "lucide-react";
 
-export function JobsLoadingSkeleton() {
+export function JobRowSkeleton() {
   return (
-    <div className="space-y-4">
-      {[1, 2, 3, 4].map((i) => (
-        <div
-          key={i}
-          className="rounded-2xl p-5 border border-zinc-200 bg-white shadow-2xs animate-pulse space-y-4"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3.5 flex-1">
-              <div className="w-12 h-12 rounded-xl bg-zinc-100" />
-              <div className="space-y-2 flex-1">
-                <div className="h-4 bg-zinc-200 rounded w-2/3" />
-                <div className="h-3 bg-zinc-100 rounded w-1/3" />
-              </div>
+    <div className="rounded-xl p-4 sm:p-5 border border-zinc-200 bg-white shadow-2xs animate-pulse">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Left & Middle Zone Skeleton */}
+        <div className="flex items-start gap-3.5 sm:gap-4 flex-1">
+          {/* Logo Skeleton */}
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-zinc-100 flex-shrink-0" />
+
+          {/* Middle Text Rows Skeleton */}
+          <div className="space-y-2.5 flex-1 min-w-0">
+            {/* Row 1: Company + Badge */}
+            <div className="flex items-center gap-2">
+              <div className="h-4 bg-zinc-200 rounded w-32" />
+              <div className="h-4 bg-zinc-100 rounded w-20" />
             </div>
-            <div className="w-8 h-8 rounded-xl bg-zinc-100" />
-          </div>
-
-          <div className="flex gap-2">
-            <div className="h-6 w-20 rounded-lg bg-zinc-100" />
-            <div className="h-6 w-24 rounded-lg bg-zinc-100" />
-            <div className="h-6 w-16 rounded-lg bg-zinc-100" />
-          </div>
-
-          <div className="h-3 bg-zinc-100 rounded w-full" />
-          <div className="h-3 bg-zinc-100 rounded w-4/5" />
-
-          <div className="pt-2 border-t border-zinc-100 flex items-center justify-between gap-4">
-            <div className="h-2 rounded-full bg-zinc-100 flex-1" />
-            <div className="h-8 w-24 rounded-xl bg-zinc-100" />
+            {/* Row 2: Title */}
+            <div className="h-3.5 bg-zinc-100 rounded w-3/4" />
+            {/* Row 3: Meta items */}
+            <div className="flex items-center gap-3">
+              <div className="h-3 bg-zinc-100 rounded w-16" />
+              <div className="h-3 bg-zinc-100 rounded w-20" />
+              <div className="h-3 bg-zinc-100 rounded w-28" />
+            </div>
+            {/* Row 4: Chips */}
+            <div className="flex items-center gap-1.5 pt-1">
+              <div className="h-5 w-14 rounded-md bg-zinc-100" />
+              <div className="h-5 w-16 rounded-md bg-zinc-100" />
+              <div className="h-5 w-12 rounded-md bg-zinc-100" />
+            </div>
           </div>
         </div>
+
+        {/* Right Zone Skeleton */}
+        <div className="flex flex-col sm:flex-row lg:flex-row items-stretch sm:items-center gap-4 pt-3 lg:pt-0 border-t border-zinc-100 lg:border-0">
+          {/* Match Info Skeleton */}
+          <div className="w-full sm:w-[180px] lg:w-[190px] space-y-2">
+            <div className="h-4 bg-zinc-200 rounded w-20" />
+            <div className="h-1.5 bg-zinc-100 rounded-full w-full" />
+            <div className="h-3 bg-zinc-100 rounded w-24" />
+          </div>
+
+          {/* Actions Skeleton */}
+          <div className="flex sm:flex-col items-center gap-2 w-full sm:w-[140px]">
+            <div className="h-9 sm:h-10 rounded-lg bg-zinc-200 w-full" />
+            <div className="h-9 sm:h-10 rounded-lg bg-zinc-100 w-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function JobsLoadingSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <JobRowSkeleton key={i} />
       ))}
     </div>
   );

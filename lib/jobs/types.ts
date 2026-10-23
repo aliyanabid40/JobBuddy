@@ -14,6 +14,9 @@ export interface Job {
   title: string;
   company: string;
   company_logo?: string | null;
+  company_domain?: string | null;
+  logo_source?: string | null;
+  logo_checked_at?: string | null;
   location: string;
   salary: string | null;
   job_type: string;           // "Full-time" | "Remote" | "Contract" etc.
@@ -25,6 +28,7 @@ export interface Job {
   job_url: string;            // target job url
   source_url: string;         // source/search result url
   url?: string;               // backward compatibility fallback
+  posted_at?: string | null;
   applied_status: string;     // 'not_applied' | 'applied'
   saved_status: boolean;      // true if saved
   is_saved?: boolean;         // backward compatibility fallback
@@ -55,7 +59,10 @@ export type BraveSearchResponse = SearchResponse;
 export interface RawNormalizedJob {
   title: string;
   company: string;
-  company_logo: string;
+  company_logo?: string | null;
+  company_domain?: string | null;
+  logo_source?: string | null;
+  logo_checked_at?: string | null;
   platform: Platform;
   job_url: string;
   source_url: string;
@@ -67,6 +74,7 @@ export interface RawNormalizedJob {
   level?: string;
   description: string;
   tags: string[];
+  posted_at?: string | null;
 }
 
 /** Filters the user can apply on the job list UI */

@@ -63,7 +63,7 @@ export function DashboardHeader({ user: _user }: DashboardHeaderProps) {
       subtitle: "JobBuddy AI application platform",
     };
 
-  /** Client-side sign-out: clears Supabase session then hard-redirects to /sign-in */
+  /** Client-side sign-out: clears Supabase session then hard-redirects to /login */
   const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);
@@ -73,9 +73,9 @@ export function DashboardHeader({ user: _user }: DashboardHeaderProps) {
     } catch {
       // Session was already expired — continue with redirect
     } finally {
-      router.replace("/sign-in");
+      router.replace("/login");
       setTimeout(() => {
-        window.location.href = "/sign-in";
+        window.location.href = "/login";
       }, 100);
     }
   };

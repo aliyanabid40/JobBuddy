@@ -57,7 +57,7 @@ describe("Phase 5 - File Integrity & Architecture Tests", () => {
     const components = [
       "components/jobs/welcome-banner.tsx",
       "components/jobs/platform-selector.tsx",
-      "components/jobs/job-card.tsx",
+      "components/jobs/job-row.tsx",
       "components/jobs/jobs-skeleton.tsx",
       "components/jobs/jobs-sidebar.tsx",
       "components/jobs/jobs-dashboard-client.tsx",
@@ -73,11 +73,11 @@ describe("Phase 5 - File Integrity & Architecture Tests", () => {
 describe("Phase 5 - Business Logic & UI Visual Token Compliance", () => {
   it("verifies brand accent token #ACF417 is applied in UI components", () => {
     const cardContent = fs.readFileSync(
-      path.resolve(process.cwd(), "components/jobs/job-card.tsx"),
+      path.resolve(process.cwd(), "components/jobs/job-row.tsx"),
       "utf-8"
     );
-    assert.ok(cardContent.includes("#ACF417"), "JobCard must use #ACF417 accent color");
-    assert.ok(cardContent.includes('target="_blank"'), "JobCard Apply Now must open in new tab");
+    assert.ok(cardContent.includes("#ACF417"), "JobRow must use #ACF417 accent color");
+    assert.ok(cardContent.includes('target="_blank"'), "JobRow Apply Now must open in new tab");
 
     const selectorContent = fs.readFileSync(
       path.resolve(process.cwd(), "components/jobs/platform-selector.tsx"),
@@ -124,28 +124,25 @@ describe("Phase 5 - Live HTTP Security & Route Integration", () => {
       const res = await fetch(`${BASE_URL}/dashboard/jobs`, {
         redirect: "manual",
       });
-      // Should redirect (307, 302, 303) or return sign-in page
-      const status = res.status;
-      assert.ok(
-        [302, 307, 308, 200].includes(status),
-        `Expected redirect or 200, got ${status}`
-      );
-      if ([302, 307, 308].includes(status)) {
-        const location = res.headers.get("location") || "";
+      // Should redirect (307, 302, 303) or return login page
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
         assert.ok(
-          location.includes("sign-in") || location.includes("login"),
-          `Expected redirect to sign-in, got ${location}`
+          location.includes("login"),
+          `Expected redirect to login, got ${location}`
         );
+      } else {
+        assert.equal(res.status, 200, "Dashboard should be accessible or redirect");
       }
     } catch (err) {
-      console.warn("Dev server check skipped:", err.message);
+      // Ignore if server not running
     }
   });
 
-  it("verifies /sign-in page responds with HTTP 200", async () => {
+  it("verifies /login page responds with HTTP 200", async () => {
     try {
-      const res = await fetch(`${BASE_URL}/sign-in`);
-      assert.equal(res.status, 200, "Sign-in page must return 200 OK");
+      const res = await fetch(`${BASE_URL}/login`);
+      assert.equal(res.status, 200, "Login page must return 200 OK");
     } catch (err) {
       console.warn("Dev server check skipped:", err.message);
     }

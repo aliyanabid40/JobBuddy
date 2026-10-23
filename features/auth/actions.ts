@@ -31,14 +31,18 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
     email,
     password,
     options: {
-      data: { full_name: fullName },
+      data: { 
+        full_name: fullName,
+        email: email // stored in metadata for trigger fallback
+      },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
     },
   });
 
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/", "layout");
-  redirect("/dashboard");
+  // Note: Client handles redirect to /check-email after success
+  return { ok: true };
 }
 
 // ── Sign In ────────────────────────────────────────────────────────────────
@@ -48,6 +52,8 @@ export async function signIn(formData: FormData): Promise<AuthResult> {
 
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const next = String(formData.get("next") ?? "/dashboard");
+  const remember = formData.get("remember") === "on";
 
   if (!email || !password) {
     return { ok: false, error: "Email and password are required." };
@@ -57,19 +63,26 @@ export async function signIn(formData: FormData): Promise<AuthResult> {
 
   if (error) return { ok: false, error: error.message };
 
+  // Note on "Remember me": 
+  // Supabase Auth with @supabase/ssr handles session persistence via cookies.
+  // By default, sessions are persistent. If "Remember me" is unchecked, 
+  // we could theoretically set the cookie to expire on browser close, 
+  // but for simplicity in this SSR setup, we follow the default persistence.
+  
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(next);
 }
 
 // ── Google OAuth ───────────────────────────────────────────────────────────
 
-export async function signInWithGoogle(): Promise<AuthResult> {
+export async function signInWithGoogle(next: string = "/dashboard"): Promise<AuthResult> {
   const supabase = await createClient();
+  const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
     },
   });
 
@@ -85,5 +98,5 @@ export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
-  redirect("/sign-in");
+  redirect("/login");
 }

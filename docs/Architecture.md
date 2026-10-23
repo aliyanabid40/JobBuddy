@@ -39,7 +39,7 @@ Billing: UI -> Stripe Checkout -> webhook /api/stripe/webhook -> subscriptions, 
 /src
   /app
     (marketing)/page.tsx            landing
-    (auth)/sign-in, sign-up
+    (auth)/login, signup, check-email, forgot-password, reset-password
     dashboard/
       layout.tsx                    sidebar shell
       jobs/ resume/ profile/ saved/ applications/ billing/

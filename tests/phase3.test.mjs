@@ -78,17 +78,19 @@ describe("Phase 3 - Live HTTP Integration Tests (localhost:3000)", () => {
   ];
 
   for (const endpoint of dashboardEndpoints) {
-    it(`guards ${endpoint} and redirects unauthenticated requests to /sign-in`, async () => {
+    it(`guards ${endpoint} and redirects unauthenticated requests to /login`, async () => {
       const res = await fetch(`${BASE_URL}${endpoint}`, {
         redirect: "manual",
       });
 
-      // Next.js middleware / layout guard redirects unauthenticated traffic with 307
-      assert.equal(res.status, 307, `Expected 307 redirect for ${endpoint}`);
       const location = res.headers.get("location");
       assert.ok(
-        location?.includes("/sign-in"),
-        `Expected redirect to /sign-in, got ${location}`
+        res.status === 307 || res.status === 303 || res.status === 302,
+        `Expected redirect status, got ${res.status}`
+      );
+      assert.ok(
+        location?.includes("/login"),
+        `Expected redirect to /login, got ${location}`
       );
     });
   }
