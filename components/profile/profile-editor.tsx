@@ -373,7 +373,7 @@ export function ProfileEditor({ initialData }: ProfileEditorProps) {
         <div
           className={`p-3.5 rounded-2xl text-xs flex items-center gap-2.5 transition-all shadow-sm ${
             feedback.type === "success"
-              ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+              ? "bg-[#f7fee7] border border-[#d9f99d] text-[#65a30d]"
               : "bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300"
           }`}
         >
@@ -399,49 +399,49 @@ export function ProfileEditor({ initialData }: ProfileEditorProps) {
             <TabsList className="bg-transparent border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap h-auto gap-2 p-0 justify-start rounded-none">
               <TabsTrigger
                 value="personal"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 data-active:text-zinc-900 dark:data-active:text-white data-active:border-b-2 data-active:border-zinc-900 dark:data-active:border-[#ACF417] rounded-none transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 data-active:text-zinc-900 data-active:border-b-2 data-active:border-zinc-900 rounded-none transition-all cursor-pointer"
               >
                 <HugeiconsIcon icon={UserIcon} size={15} />
                 <span>Personal</span>
               </TabsTrigger>
               <TabsTrigger
                 value="summary"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 data-active:text-zinc-900 dark:data-active:text-white data-active:border-b-2 data-active:border-zinc-900 dark:data-active:border-[#ACF417] rounded-none transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 data-active:text-zinc-900 data-active:border-b-2 data-active:border-zinc-900 rounded-none transition-all cursor-pointer"
               >
                 <HugeiconsIcon icon={DocumentCodeIcon} size={15} />
                 <span>Summary</span>
               </TabsTrigger>
               <TabsTrigger
                 value="skills"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 data-active:text-zinc-900 dark:data-active:text-white data-active:border-b-2 data-active:border-zinc-900 dark:data-active:border-[#ACF417] rounded-none transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 data-active:text-zinc-900 data-active:border-b-2 data-active:border-zinc-900 rounded-none transition-all cursor-pointer"
               >
                 <HugeiconsIcon icon={Award01Icon} size={15} />
                 <span>Skills</span>
               </TabsTrigger>
               <TabsTrigger
                 value="experience"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 data-active:text-zinc-900 dark:data-active:text-white data-active:border-b-2 data-active:border-zinc-900 dark:data-active:border-[#ACF417] rounded-none transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 data-active:text-zinc-900 data-active:border-b-2 data-active:border-zinc-900 rounded-none transition-all cursor-pointer"
               >
                 <HugeiconsIcon icon={Briefcase01Icon} size={15} />
                 <span>Experience</span>
               </TabsTrigger>
               <TabsTrigger
                 value="education"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 data-active:text-zinc-900 dark:data-active:text-white data-active:border-b-2 data-active:border-zinc-900 dark:data-active:border-[#ACF417] rounded-none transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 data-active:text-zinc-900 data-active:border-b-2 data-active:border-zinc-900 rounded-none transition-all cursor-pointer"
               >
                 <HugeiconsIcon icon={GraduationCapIcon} size={15} />
                 <span>Education</span>
               </TabsTrigger>
               <TabsTrigger
                 value="projects"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 data-active:text-zinc-900 dark:data-active:text-white data-active:border-b-2 data-active:border-zinc-900 dark:data-active:border-[#ACF417] rounded-none transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 data-active:text-zinc-900 data-active:border-b-2 data-active:border-zinc-900 rounded-none transition-all cursor-pointer"
               >
                 <HugeiconsIcon icon={CodeCircleIcon} size={15} />
                 <span>Projects</span>
               </TabsTrigger>
               <TabsTrigger
                 value="certifications"
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 data-active:text-zinc-900 dark:data-active:text-white data-active:border-b-2 data-active:border-zinc-900 dark:data-active:border-[#ACF417] rounded-none transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-zinc-600 data-active:text-zinc-900 data-active:border-b-2 data-active:border-zinc-900 rounded-none transition-all cursor-pointer"
               >
                 <HugeiconsIcon icon={Certificate01Icon} size={15} />
                 <span>Certifications</span>

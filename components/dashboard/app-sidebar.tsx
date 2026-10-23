@@ -19,6 +19,7 @@ import {
 import { CreditsWidget } from "@/components/dashboard/credits-widget";
 import { NavUser } from "@/components/dashboard/nav-user";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { ROUTES } from "@/lib/routes";
 import {
   Briefcase01Icon,
   File01Icon,
@@ -26,28 +27,39 @@ import {
   TaskDone01Icon,
   CreditCardIcon,
   Settings01Icon,
+  DashboardCircleIcon,
 } from "@hugeicons/core-free-icons";
 
 const navigationItems = [
   {
+    title: "Dashboard",
+    url: ROUTES.dashboard,
+    icon: DashboardCircleIcon,
+    exact: true, // only active on exact match
+  },
+  {
     title: "Jobs",
-    url: "/dashboard/jobs",
+    url: ROUTES.jobs,
     icon: Briefcase01Icon,
+    exact: false,
   },
   {
     title: "Resume",
-    url: "/dashboard/resume",
+    url: ROUTES.resume,
     icon: File01Icon,
+    exact: false,
   },
   {
     title: "Profile",
-    url: "/dashboard/profile",
+    url: ROUTES.profile,
     icon: UserIcon,
+    exact: false,
   },
   {
     title: "Application Status",
-    url: "/dashboard/applications",
+    url: ROUTES.applications,
     icon: TaskDone01Icon,
+    exact: false,
   },
 ];
 
@@ -67,17 +79,17 @@ export function AppSidebar({ user }: AppSidebarProps) {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-zinc-200 bg-white text-zinc-900 dark:border-zinc-800/80 dark:bg-zinc-950 dark:text-zinc-100 transition-colors"
+      className="border-r border-zinc-200 bg-white text-zinc-900"
     >
       {/* ── Top Header: Brand Logo & App Name ───────────────────────────── */}
-      <SidebarHeader className="border-b border-zinc-200 dark:border-zinc-800/80 p-3.5">
+      <SidebarHeader className="border-b border-zinc-200 p-3.5 bg-white">
         <div className="flex items-center justify-between gap-2.5">
           <Link
             href="/dashboard"
             className="flex items-center gap-3 overflow-hidden transition-opacity hover:opacity-90"
           >
-            {/* Logo mark with neon lime accent and glow */}
-            <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#ACF417]/40 bg-zinc-900 shadow-[0_0_15px_rgba(172,244,23,0.2)]">
+            {/* Logo mark with clean container */}
+            <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
               <Image
                 src="/jobbuddy-logo.png"
                 alt="JobBuddy AI Logo"
@@ -91,14 +103,14 @@ export function AppSidebar({ user }: AppSidebarProps) {
             {/* Brand text */}
             <div className="flex flex-col text-left leading-tight group-data-[collapsible=icon]:hidden">
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">
+                <span className="text-lg font-bold tracking-tight text-zinc-900">
                   JobBuddy
                 </span>
-                <span className="rounded bg-[#ACF417] px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-zinc-950">
+                <span className="rounded bg-[#65a30d] px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-white">
                   AI
                 </span>
               </div>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 leading-normal break-words">
+              <span className="text-xs text-zinc-500 leading-normal break-words">
                 AI Job Application Agent
               </span>
             </div>
@@ -106,33 +118,29 @@ export function AppSidebar({ user }: AppSidebarProps) {
 
           {/* Quick toggle trigger on desktop when expanded */}
           <div className="hidden group-data-[collapsible=icon]:hidden md:block">
-            <SidebarTrigger className="size-8 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-[#ACF417]" />
+            <SidebarTrigger className="size-8 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-900" />
           </div>
         </div>
       </SidebarHeader>
 
       {/* ── Main Navigation Content ──────────────────────────────────────── */}
-      <SidebarContent className="px-3 py-4 bg-white dark:bg-zinc-950 transition-colors">
+      <SidebarContent className="px-3 py-4 bg-white">
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-2.5">
               {navigationItems.map((item) => {
-                const isActive =
-                  pathname === item.url ||
-                  (item.url !== "/dashboard" && pathname.startsWith(item.url));
+                const isActive = item.exact
+                  ? pathname === item.url
+                  : pathname === item.url || pathname.startsWith(item.url + "/");
 
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                      render={
-                        <Link
-                          href={item.url}
-                          className={
-                            isActive
-                              ? "h-12 border-l-[3px] border-[#65a30d] bg-[#EAFCC7] px-3 text-base font-semibold text-zinc-950 shadow-sm dark:border-[#ACF417] dark:bg-[#ACF417]/10 dark:text-[#ACF417] dark:shadow-[inset_0_0_12px_rgba(172,244,23,0.06)]"
-                              : "h-12 px-3 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                          }
-                        />
+                      render={<Link href={item.url} />}
+                      className={
+                        isActive
+                          ? "h-11 border-l-[3px] border-[var(--accent-text)] bg-[var(--accent-soft)] px-3 text-sm font-semibold text-zinc-950"
+                          : "h-11 px-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
                       }
                       tooltip={item.title}
                       isActive={isActive}
@@ -142,12 +150,12 @@ export function AppSidebar({ user }: AppSidebarProps) {
                         icon={item.icon}
                         className={
                           isActive
-                            ? "size-6 shrink-0 text-[#65a30d] dark:text-[#ACF417]"
-                            : "size-6 shrink-0 text-zinc-500 group-hover:text-zinc-950 dark:text-zinc-400 dark:group-hover:text-zinc-200"
+                            ? "size-5 shrink-0 text-[var(--accent-text)]"
+                            : "size-5 shrink-0 text-zinc-500 group-hover:text-zinc-950"
                         }
                         strokeWidth={2}
                       />
-                      <span className="truncate text-base">{item.title}</span>
+                      <span className="truncate text-sm">{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -158,72 +166,64 @@ export function AppSidebar({ user }: AppSidebarProps) {
       </SidebarContent>
 
       {/* ── Bottom Footer Section ────────────────────────────────────────── */}
-      <SidebarFooter className="border-t border-zinc-200 dark:border-zinc-800/80 p-3 bg-white dark:bg-zinc-950 transition-colors">
+      <SidebarFooter className="border-t border-zinc-200 p-3 bg-white">
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
               {/* Billing / Credits Option */}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  render={
-                    <Link
-                      href="/dashboard/billing"
-                      className={
-                        pathname.startsWith("/dashboard/billing")
-                          ? "h-11 border-l-[3px] border-[#65a30d] bg-[#EAFCC7] px-3 text-base font-semibold text-zinc-950 dark:border-[#ACF417] dark:bg-[#ACF417]/10 dark:text-[#ACF417]"
-                          : "h-11 px-3 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                      }
-                    />
+                  render={<Link href={ROUTES.billing} />}
+                  className={
+                    pathname.startsWith(ROUTES.billing)
+                      ? "h-10 border-l-[3px] border-[var(--accent-text)] bg-[var(--accent-soft)] px-3 text-sm font-semibold text-zinc-950"
+                      : "h-10 px-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
                   }
                   tooltip="Billing / Credits"
-                  isActive={pathname.startsWith("/dashboard/billing")}
+                  isActive={pathname.startsWith(ROUTES.billing)}
                 >
                   <HugeiconsIcon
                     icon={CreditCardIcon}
                     className={
-                      pathname.startsWith("/dashboard/billing")
-                        ? "size-5.5 shrink-0 text-[#65a30d] dark:text-[#ACF417]"
-                        : "size-5.5 shrink-0 text-zinc-500 dark:text-zinc-400"
+                      pathname.startsWith(ROUTES.billing)
+                        ? "size-5 shrink-0 text-[var(--accent-text)]"
+                        : "size-5 shrink-0 text-zinc-500"
                     }
                     strokeWidth={2}
                   />
-                  <span className="truncate text-base">Billing / Credits</span>
+                  <span className="truncate text-sm">Billing / Credits</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
               {/* Profile Settings Option */}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  render={
-                    <Link
-                      href="/dashboard/settings"
-                      className={
-                        pathname.startsWith("/dashboard/settings")
-                          ? "h-11 border-l-[3px] border-[#65a30d] bg-[#EAFCC7] px-3 text-base font-semibold text-zinc-950 dark:border-[#ACF417] dark:bg-[#ACF417]/10 dark:text-[#ACF417]"
-                          : "h-11 px-3 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
-                      }
-                    />
+                  render={<Link href={ROUTES.settings} />}
+                  className={
+                    pathname.startsWith(ROUTES.settings)
+                      ? "h-10 border-l-[3px] border-[var(--accent-text)] bg-[var(--accent-soft)] px-3 text-sm font-semibold text-zinc-950"
+                      : "h-10 px-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
                   }
                   tooltip="Profile Settings"
-                  isActive={pathname.startsWith("/dashboard/settings")}
+                  isActive={pathname.startsWith(ROUTES.settings)}
                 >
                   <HugeiconsIcon
                     icon={Settings01Icon}
                     className={
-                      pathname.startsWith("/dashboard/settings")
-                        ? "size-5.5 shrink-0 text-[#65a30d] dark:text-[#ACF417]"
-                        : "size-5.5 shrink-0 text-zinc-500 dark:text-zinc-400"
+                      pathname.startsWith(ROUTES.settings)
+                        ? "size-5 shrink-0 text-[var(--accent-text)]"
+                        : "size-5 shrink-0 text-zinc-500"
                     }
                     strokeWidth={2}
                   />
-                  <span className="truncate text-base">Profile Settings</span>
+                  <span className="truncate text-sm">Profile Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Proper Credits Display Section with #ACF417 accents */}
+        {/* Proper Credits Display Section */}
         <div className="my-2">
           <CreditsWidget used={2} total={10} planName="Free Plan" />
         </div>
