@@ -6,7 +6,7 @@
 | Frontend | Next.js (App Router) + TypeScript + Tailwind + shadcn/ui | Fast UI, fewer tokens |
 | Auth/DB/Storage | Supabase (Postgres, Auth, Storage, RLS) | One service for 3 needs |
 | Resume AI | Google Gemini (`@google/genai`) | Free tier, structured JSON |
-| Job discovery | Brave Search API | Legal search instead of scraping |
+| Job discovery | Tavily Search API (`@tavily/core`) | Structured search API instead of scraping |
 | Background jobs | Inngest | Long-running, retries, step logs |
 | Browser automation | Browserbase + Stagehand | Cloud browser, AI form filling |
 | Payments | Stripe (Checkout, Portal, Webhooks) | Subscriptions |
@@ -24,7 +24,7 @@ Supabase Auth ── middleware/proxy guard ── Supabase Postgres (RLS)
    v                                         |
 Supabase Storage -> unpdf/mammoth -> Gemini -> profiles, skills, experience...
    
-Jobs: UI -> /api/jobs -> (cache fresh? <6h) -> DB | else Brave API -> normalize -> DB
+Jobs: UI -> /api/jobs -> (cache fresh? <6h) -> DB | else Tavily API -> normalize -> DB
 
 Apply (AI): UI -> /api/apply -> job_applications(queued) -> Inngest event
    Inngest fn: detect-platform -> detect-fields (Browserbase/Stagehand)
@@ -53,7 +53,7 @@ Billing: UI -> Stripe Checkout -> webhook /api/stripe/webhook -> subscriptions, 
   /lib
     supabase/{client,server,admin}.ts
     ai/gemini.ts  resume-parser.ts  field-mapper.ts
-    jobs/brave.ts  query-builder.ts  match-score.ts
+    jobs/tavily.ts  query-builder.ts  match-score.ts
     automation/adapters/{greenhouse,lever,workable,wellfound}.ts
     inngest/{client,functions}.ts
     stripe/{client,plans}.ts
@@ -81,7 +81,7 @@ Any step may go to `failed` (stores error + session link). `missing_info -> read
 ## 6. Key Decisions
 1. **Queue, not request/response** for agent work (runs 1-3 min).
 2. **Adapters per platform** keyed on hostname; unknown host = `unsupported`.
-3. **Cache jobs 6h** to protect Brave credits.
+3. **Cache jobs 6h** to protect Tavily credits.
 4. **Service-role key server-only**, used by Inngest functions to write on behalf of users.
 5. **Limits enforced server-side** (`daily_apply_usage`) — never trust UI.
 6. **AI model name in env** (`GEMINI_MODEL`) because models get retired.
@@ -90,7 +90,7 @@ Any step may go to `failed` (stores error + session link). `missing_info -> read
 ```
 NEXT_PUBLIC_SUPABASE_URL  NEXT_PUBLIC_SUPABASE_ANON_KEY  SUPABASE_SERVICE_ROLE_KEY
 GEMINI_API_KEY  GEMINI_MODEL
-BRAVE_SEARCH_API_KEY
+TAVILY_API_KEY
 BROWSERBASE_API_KEY  BROWSERBASE_PROJECT_ID  STAGEHAND_MODEL
 INNGEST_EVENT_KEY  INNGEST_SIGNING_KEY  INNGEST_DEV
 STRIPE_SECRET_KEY  STRIPE_WEBHOOK_SECRET  NEXT_PUBLIC_APP_URL

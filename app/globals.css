@@ -7,6 +7,13 @@
 @theme inline {
   --color-neon-lime: #ACF417;
   --color-primary-neon: #ACF417;
+
+  /* Brand lime (light theme). Keep separate from shadcn --accent (muted surface). */
+  --color-accent-lime: var(--accent-lime);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
@@ -51,6 +58,13 @@
 }
 
 :root {
+  /* Brand lime — Dashboard bars, Profile ring/bars/badge.
+     --accent is reserved by shadcn as a muted surface, so fill is --accent-lime. */
+  --accent-lime: #84cc16;
+  --accent-soft: #f7fee7;
+  --accent-border: #d9f99d;
+  --accent-text: #3f6212;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

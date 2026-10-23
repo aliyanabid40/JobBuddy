@@ -38,9 +38,9 @@ export default async function DashboardLayout({
     <DashboardThemeProvider>
       <SidebarProvider defaultOpen={true}>
         <AppSidebar user={user} />
-        <SidebarInset className="min-h-screen bg-transparent text-inherit flex flex-col transition-colors">
+        <SidebarInset className="min-h-screen bg-white text-zinc-900 flex flex-col">
           <DashboardHeader user={user} />
-          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 bg-white text-zinc-900">
             {children}
           </main>
         </SidebarInset>
