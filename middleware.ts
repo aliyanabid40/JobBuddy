@@ -2,6 +2,29 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // OAuth / email plumbing endpoints (e.g. /auth/callback) read the session
+  // themselves. Running a redundant `getUser()` here would add a full round
+  // trip to Supabase on the critical login path, so skip them entirely.
+  if (pathname.startsWith("/auth/")) {
+    return NextResponse.next({ request });
+  }
+
+  // Protected routes: /dashboard, /jobs, /resume, /profile, /application-status, /billing
+  const protectedRoutes = ["/dashboard", "/jobs", "/resume", "/profile", "/application-status", "/billing"];
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+
+  // Auth pages that should bounce an already-signed-in user to the dashboard.
+  const authPages = ["/login", "/signup", "/forgot-password", "/check-email"];
+  const isAuthPage = authPages.includes(pathname);
+
+  // Public routes (marketing, docs, etc.) need neither a session nor a refresh.
+  // Returning early avoids a Supabase round trip on every page view.
+  if (!isProtectedRoute && !isAuthPage) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -25,16 +48,10 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session — do NOT remove; critical for keeping session alive
+  // Single session refresh + user lookup per request.
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-
-  // Protected routes: /dashboard, /jobs, /resume, /profile, /application-status, /billing
-  const protectedRoutes = ["/dashboard", "/jobs", "/resume", "/profile", "/application-status", "/billing"];
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
   if (isProtectedRoute && !user) {
     const redirectUrl = request.nextUrl.clone();
@@ -43,9 +60,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If already logged in, skip the auth pages (/login, /signup, /forgot-password, /check-email)
-  const authPages = ["/login", "/signup", "/forgot-password", "/check-email"];
-  if (authPages.includes(pathname) && user) {
+  if (isAuthPage && user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);
