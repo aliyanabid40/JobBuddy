@@ -1,10 +1,10 @@
 "use client";
 
-import React, { Suspense, useState, useTransition } from "react";
+import React, { Suspense, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock } from "lucide-react";
-import { signIn, signInWithGoogle } from "@/features/auth/actions";
+import { signIn } from "@/features/auth/actions";
 import { AuthInput } from "@/components/auth/AuthInput";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { GoogleButton } from "@/components/auth/GoogleButton";
@@ -13,6 +13,7 @@ import { FormErrorBanner } from "@/components/auth/FormErrorBanner";
 import { Checkbox } from "@/components/ui/checkbox";
 
 function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
   const oauthError = searchParams.get("error") === "oauth_failed";
@@ -21,7 +22,11 @@ function LoginForm() {
     oauthError ? "Google sign-in failed. Please try again." : null
   );
   const [isPending, startTransition] = useTransition();
-  const [isGooglePending, startGoogleTransition] = useTransition();
+
+  // Prefetch the post-login destination so it renders instantly after auth.
+  useEffect(() => {
+    router.prefetch("/dashboard");
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,14 +46,6 @@ function LoginForm() {
     });
   }
 
-  function handleGoogle() {
-    setError(null);
-    startGoogleTransition(async () => {
-      const result = await signInWithGoogle(next);
-      if (result && !result.ok) setError(result.error ?? "Google sign-in failed.");
-    });
-  }
-
   return (
     <div className="w-full space-y-8">
       {/* Title block */}
@@ -64,7 +61,10 @@ function LoginForm() {
       <FormErrorBanner message={error} />
 
       <div className="space-y-6">
-        <GoogleButton onClick={handleGoogle} isLoading={isGooglePending} />
+        <GoogleButton
+          next={next}
+          onError={(msg) => setError(msg || "Google sign-in failed. Please try again.")}
+        />
 
         <Divider>or continue with email</Divider>
 

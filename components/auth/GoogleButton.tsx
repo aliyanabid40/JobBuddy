@@ -1,49 +1,109 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 interface GoogleButtonProps {
-  onClick: () => void;
-  isLoading?: boolean;
+  /** Path to land on after a successful OAuth round trip. */
+  next?: string;
+  /** Called with a friendly message if the OAuth request fails. */
+  onError?: (message: string) => void;
   text?: string;
 }
 
-export function GoogleButton({ 
-  onClick, 
-  isLoading = false,
-  text = "Continue with Google"
+/**
+ * Official Google "G" mark as a single clean inline SVG.
+ * 4 paths with the official brand colors and a matching 48x48 viewBox so the
+ * whole glyph stays inside the viewport (no clipping) at any size/zoom.
+ */
+function GoogleIcon() {
+  return (
+    <svg
+      className="block h-[18px] w-[18px] shrink-0"
+      viewBox="0 0 48 48"
+      width="18"
+      height="18"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
+  );
+}
+
+export function GoogleButton({
+  next = "/dashboard",
+  onError,
+  text = "Continue with Google",
 }: GoogleButtonProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleClick() {
+    // Guard against double clicks — the button is also disabled while loading.
+    if (isLoading) return;
+    setIsLoading(true);
+    onError?.("");
+    const startedAt = performance.now();
+
+    // Singleton browser client (created once, reused on every click).
+    const supabase = createClient();
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || "";
+
+    console.time("[oauth] signInWithOAuth");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    });
+    console.timeEnd("[oauth] signInWithOAuth");
+    console.log(
+      `[oauth] url returned in ${Math.round(performance.now() - startedAt)}ms`
+    );
+
+    if (error) {
+      // Reset so the user can retry after a failure.
+      setIsLoading(false);
+      onError?.(error.message);
+    }
+    // On success supabase-js redirects the browser to Google automatically.
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
       disabled={isLoading}
+      aria-busy={isLoading}
       className="w-full flex items-center justify-center gap-3 h-[52px] px-6 bg-white border border-[#E5E7EB] rounded-[12px] text-[#111827] font-medium hover:bg-[#F9FAFB] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
     >
       {isLoading ? (
-        <Loader2 className="w-5 h-5 animate-spin text-[#9CA3AF]" />
+        <Loader2 className="w-[18px] h-[18px] shrink-0 animate-spin text-[#9CA3AF]" />
       ) : (
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
-          <path
-            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-            fill="#4285F4"
-          />
-          <path
-            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            fill="#34A853"
-          />
-          <path
-            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-            fill="#FBBC05"
-          />
-          <path
-            d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-            fill="#EA4335"
-          />
-        </svg>
+        <GoogleIcon />
       )}
-      <span className="text-[14px]">{isLoading ? "Redirecting..." : text}</span>
+      <span className="text-[14px]">
+        {isLoading ? "Connecting to Google..." : text}
+      </span>
     </button>
   );
 }

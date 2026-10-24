@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, User } from "lucide-react";
-import { signUp, signInWithGoogle } from "@/features/auth/actions";
+import { signUp } from "@/features/auth/actions";
 import { AuthInput } from "@/components/auth/AuthInput";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { GoogleButton } from "@/components/auth/GoogleButton";
@@ -17,8 +17,12 @@ export default function SignUpPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isGooglePending, startGoogleTransition] = useTransition();
-  
+
+  // Prefetch the post-signup destination so it renders instantly after auth.
+  useEffect(() => {
+    router.prefetch("/dashboard");
+  }, [router]);
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [strength, setStrength] = useState(0);
@@ -71,14 +75,6 @@ export default function SignUpPage() {
     });
   }
 
-  function handleGoogle() {
-    setError(null);
-    startGoogleTransition(async () => {
-      const result = await signInWithGoogle("/dashboard");
-      if (result && !result.ok) setError(result.error ?? "Google sign-in failed.");
-    });
-  }
-
   return (
     <div className="w-full space-y-8">
       <div className="text-center lg:text-left space-y-2">
@@ -93,7 +89,10 @@ export default function SignUpPage() {
       <FormErrorBanner message={error} />
 
       <div className="space-y-6">
-        <GoogleButton onClick={handleGoogle} isLoading={isGooglePending} />
+        <GoogleButton
+          next="/dashboard"
+          onError={(msg) => setError(msg || "Google sign-in failed. Please try again.")}
+        />
 
         <Divider>or sign up with email</Divider>
 
@@ -156,18 +155,9 @@ export default function SignUpPage() {
             </label>
           </div>
 
-          <div className="space-y-4">
-            <AuthButton type="submit" isLoading={isPending} showArrow className="h-[52px] text-[15px]">
-              Create account
-            </AuthButton>
-            
-            <div className="flex justify-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#F4FDE8] rounded-full text-[12px] font-bold text-[#4D7C0F] border border-[#D9F2A6]">
-                <span className="w-1.5 h-1.5 bg-[#A8F510] rounded-full" />
-                Free plan: 10 daily applies
-              </div>
-            </div>
-          </div>
+          <AuthButton type="submit" isLoading={isPending} showArrow className="h-[52px] text-[15px]">
+            Create account
+          </AuthButton>
         </form>
 
         <div className="text-center">

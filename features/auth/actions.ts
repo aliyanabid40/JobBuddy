@@ -73,25 +73,6 @@ export async function signIn(formData: FormData): Promise<AuthResult> {
   redirect(next);
 }
 
-// ── Google OAuth ───────────────────────────────────────────────────────────
-
-export async function signInWithGoogle(next: string = "/dashboard"): Promise<AuthResult> {
-  const supabase = await createClient();
-  const origin = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-    },
-  });
-
-  if (error) return { ok: false, error: error.message };
-  if (data.url) redirect(data.url);
-
-  return { ok: true };
-}
-
 // ── Sign Out ───────────────────────────────────────────────────────────────
 
 export async function signOut(): Promise<void> {
